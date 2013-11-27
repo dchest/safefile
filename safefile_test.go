@@ -21,9 +21,14 @@ func ensureFileContains(name, data string) error {
 	return nil
 }
 
+func tempFileName(count int) string {
+	return filepath.Join(os.TempDir(), fmt.Sprintf("safefile-test-%d-%x", count, time.Now().UnixNano()))
+}
+
+var testData = "Hello, this is a test data"
+
 func testInTempDir() error {
-	data := "Hello, safe file"
-	name := filepath.Join(os.TempDir(), fmt.Sprintf("safefile-test1-%x", time.Now().UnixNano()))
+	name := tempFileName(0)
 	defer os.Remove(name)
 	f, err := Create(name, 0666)
 	if err != nil {
@@ -33,7 +38,7 @@ func testInTempDir() error {
 		f.Close()
 		return fmt.Errorf("name %q differs from OrigName: %q", name, f.OrigName())
 	}
-	_, err = io.WriteString(f, data)
+	_, err = io.WriteString(f, testData)
 	if err != nil {
 		f.Close()
 		return err
@@ -46,7 +51,7 @@ func testInTempDir() error {
 	if err != nil {
 		return err
 	}
-	return ensureFileContains(name, data)
+	return ensureFileContains(name, testData)
 }
 
 func TestFile(t *testing.T) {
@@ -57,13 +62,12 @@ func TestFile(t *testing.T) {
 }
 
 func TestWriteFile(t *testing.T) {
-	data := "Testing WriteFile"
-	name := filepath.Join(os.TempDir(), fmt.Sprintf("safefile-test2-%x", time.Now().UnixNano()))
-	err := WriteFile(name, []byte(data), 0666)
+	name := tempFileName(1)
+	err := WriteFile(name, []byte(testData), 0666)
 	if err != nil {
 		t.Fatalf("%s", err)
 	}
-	err = ensureFileContains(name, data)
+	err = ensureFileContains(name, testData)
 	if err != nil {
 		os.Remove(name)
 		t.Fatalf("%s", err)
@@ -72,7 +76,7 @@ func TestWriteFile(t *testing.T) {
 }
 
 func TestAbandon(t *testing.T) {
-	name := filepath.Join(os.TempDir(), fmt.Sprintf("safefile-test3-%x", time.Now().UnixNano()))
+	name := tempFileName(3)
 	f, err := Create(name, 0666)
 	if err != nil {
 		t.Fatalf("%s", err)
@@ -86,4 +90,28 @@ func TestAbandon(t *testing.T) {
 	if err != nil && !os.IsNotExist(err) {
 		t.Fatalf("%s", err)
 	}
+}
+
+func TestDoubleCommit(t *testing.T) {
+	name := tempFileName(3)
+	f, err := Create(name, 0666)
+	if err != nil {
+		t.Fatalf("%s", err)
+	}
+	err = f.Commit()
+	if err != nil {
+		os.Remove(name)
+		t.Fatalf("First commit failed: %s", err)
+	}
+	err = f.Commit()
+	if err != ErrAlreadyCommitted {
+		os.Remove(name)
+		t.Fatalf("Second commit didn't fail: %s", err)
+	}
+	err = f.Close()
+	if err != nil {
+		os.Remove(name)
+		t.Fatalf("Close failed: %s", err)
+	}
+	os.Remove(name)
 }

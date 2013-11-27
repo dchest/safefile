@@ -33,6 +33,7 @@
 package safefile
 
 import (
+	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -40,10 +41,15 @@ import (
 	"time"
 )
 
+// ErrAlreadyCommitted error is returned by when calling Commit on a file that
+// has been already successfully committed.
+var ErrAlreadyCommitted = errors.New("file already committed")
+
 type File struct {
 	*os.File
-	origName  string
-	closeFunc func(*File) error
+	origName    string
+	closeFunc   func(*File) error
+	isCommitted bool
 }
 
 func makeTempName(origname string, counter int) (tempname string, err error) {
@@ -125,6 +131,9 @@ func closeAgainError(f *File) error {
 // In case of error, the temporary file is still opened and exists on disk;
 // it must be closed by callers by calling Close or by trying to commit again.
 func (f *File) Commit() error {
+	if f.isCommitted {
+		return ErrAlreadyCommitted
+	}
 	// Sync to disk.
 	err := f.Sync()
 	if err != nil {
@@ -142,6 +151,7 @@ func (f *File) Commit() error {
 		return err
 	}
 	f.closeFunc = closeCommitted
+	f.isCommitted = true
 	return nil
 }
 
