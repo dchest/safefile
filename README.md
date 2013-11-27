@@ -26,6 +26,7 @@ if err != nil {
 	// ...
 }
 // Created temporary file /home/ken/133a7876287381fa-0.tmp
+
 defer f.Close()
 
 _, err = io.WriteString(f, "Hello world")

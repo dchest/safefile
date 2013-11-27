@@ -15,6 +15,7 @@
 //  	// ...
 //  }
 //  // Created temporary file /home/ken/133a7876287381fa-0.tmp
+//
 //  defer f.Close()
 //
 //  _, err = io.WriteString(f, "Hello world")
@@ -41,7 +42,6 @@ import (
 
 type File struct {
 	*os.File
-	tempName  string
 	origName  string
 	closeFunc func(*File) error
 }
@@ -72,7 +72,6 @@ func Create(filename string, perm os.FileMode) (*File, error) {
 		}
 		return &File{
 			File:      f,
-			tempName:  tempname,
 			origName:  filename,
 			closeFunc: closeUncommitted,
 		}, nil
