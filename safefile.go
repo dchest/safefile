@@ -6,7 +6,7 @@
 //
 // Instead of truncating and overwriting the destination file, it creates a
 // temporary file in the same directory, writes to it, and then renames the
-// temporary file to the original name on close.
+// temporary file to the original name when calling Commit.
 //
 // Example:
 //
@@ -15,6 +15,7 @@
 //  	// ...
 //  }
 //  // Created temporary file /home/ken/133a7876287381fa-0.tmp
+//  defer f.Close()
 //
 //  _, err = io.WriteString(f, "Hello world")
 //  if err != nil {
@@ -22,10 +23,8 @@
 //  }
 //  // Wrote "Hello world" to /home/ken/133a7876287381fa-0.tmp
 //
-//  err = f.Close()
+//  err = f.Commit()
 //  if err != nil {
-//      // ...
-//      // Due to close error, temporary file removed.
 //      // ...
 //  }
 //  // Renamed /home/ken/133a7876287381fa-0.tmp to /home/ken/report.txt
@@ -42,7 +41,9 @@ import (
 
 type File struct {
 	*os.File
-	origName string
+	tempName  string
+	origName  string
+	closeFunc func(*File) error
 }
 
 func makeTempName(origname string, counter int) (tempname string, err error) {
@@ -69,7 +70,12 @@ func Create(filename string, perm os.FileMode) (*File, error) {
 			}
 			return nil, err
 		}
-		return &File{f, filename}, nil
+		return &File{
+			File:      f,
+			tempName:  tempname,
+			origName:  filename,
+			closeFunc: closeUncommitted,
+		}, nil
 	}
 }
 
@@ -78,43 +84,66 @@ func (f *File) OrigName() string {
 	return f.origName
 }
 
-// CloseEx safely closes the file by syncing temporary file,
+// Close closes temporary file and removes it.
+// If the file has been committed, Close is noop.
+func (f *File) Close() error {
+	return f.closeFunc(f)
+}
+
+func closeUncommitted(f *File) error {
+	err0 := f.File.Close()
+	err1 := os.Remove(f.Name())
+	f.closeFunc = closeAgainError
+	if err0 != nil {
+		return err0
+	}
+	return err1
+}
+
+func closeAfterFailedRename(f *File) error {
+	// just remove temporary file.
+	f.closeFunc = closeAgainError
+	return os.Remove(f.Name())
+}
+
+func closeCommitted(f *File) error {
+	// noop
+	return nil
+}
+
+func closeAgainError(f *File) error {
+	return os.ErrInvalid
+}
+
+// Commit safely closes the file by syncing temporary file,
 // closing it and renaming to the original file name.
 //
-// In case of error, the temporary file is closed, and if
-// deleteOnError is true, it is also removed.
-func (f *File) CloseEx(deleteOnError bool) error {
+// In case of success, the temporary file is closed and
+// no longer exists on disk. It is safe to call Close on
+// after Commit: the operation will do nothing.
+//
+// In case of error, the temporary file is still opened
+// and exists on disk; it must be closed by callers by
+// calling Close or by trying to commit again.
+func (f *File) Commit() error {
 	// Sync to disk.
 	err := f.Sync()
 	if err != nil {
-		f.File.Close() // ignore close error
-		if deleteOnError {
-			os.Remove(f.Name())
-		}
 		return err
 	}
 	// Close underlying os.File.
 	err = f.File.Close()
 	if err != nil {
-		if deleteOnError {
-			os.Remove(f.Name())
-		}
 		return err
 	}
 	// Rename.
 	err = os.Rename(f.Name(), f.origName)
 	if err != nil {
-		if deleteOnError {
-			os.Remove(f.Name())
-		}
+		f.closeFunc = closeAfterFailedRename
 		return err
 	}
+	f.closeFunc = closeCommitted
 	return nil
-}
-
-// Close calls CloseEx(true).
-func (f *File) Close() error {
-	return f.CloseEx(true)
 }
 
 // WriteFile is a safe analog of ioutil.WriteFile.
@@ -123,15 +152,14 @@ func WriteFile(filename string, data []byte, perm os.FileMode) error {
 	if err != nil {
 		return err
 	}
+	defer f.Close()
 	n, err := f.Write(data)
 	if err != nil {
-		f.Close()
 		return err
 	}
 	if err == nil && n < len(data) {
-		f.Close()
 		err = io.ErrShortWrite
 		return err
 	}
-	return f.Close()
+	return f.Commit()
 }

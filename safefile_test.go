@@ -1,11 +1,11 @@
 package safefile
 
 import (
-	"path/filepath"
 	"fmt"
 	"io"
 	"io/ioutil"
 	"os"
+	"path/filepath"
 	"testing"
 	"time"
 )
@@ -30,11 +30,16 @@ func testInTempDir() error {
 		return err
 	}
 	if name != f.OrigName() {
+		f.Close()
 		return fmt.Errorf("name %q differs from OrigName: %q", name, f.OrigName())
 	}
 	_, err = io.WriteString(f, data)
 	if err != nil {
 		f.Close()
+		return err
+	}
+	err = f.Commit()
+	if err != nil {
 		return err
 	}
 	err = f.Close()
@@ -58,10 +63,27 @@ func TestWriteFile(t *testing.T) {
 	if err != nil {
 		t.Fatalf("%s", err)
 	}
-	err = ensureFileContains(name, data) 
+	err = ensureFileContains(name, data)
 	if err != nil {
 		os.Remove(name)
 		t.Fatalf("%s", err)
 	}
 	os.Remove(name)
+}
+
+func TestAbandon(t *testing.T) {
+	name := filepath.Join(os.TempDir(), fmt.Sprintf("safefile-test3-%x", time.Now().UnixNano()))
+	f, err := Create(name, 0666)
+	if err != nil {
+		t.Fatalf("%s", err)
+	}
+	err = f.Close()
+	if err != nil {
+		t.Fatalf("Abandon failed: %s", err)
+	}
+	// Make sure temporary file doesn't exist.
+	_, err = os.Stat(f.Name())
+	if err != nil && !os.IsNotExist(err) {
+		t.Fatalf("%s", err)
+	}
 }
