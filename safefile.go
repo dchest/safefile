@@ -41,7 +41,7 @@ import (
 	"time"
 )
 
-// ErrAlreadyCommitted error is returned by when calling Commit on a file that
+// ErrAlreadyCommitted error is returned when calling Commit on a file that
 // has been already successfully committed.
 var ErrAlreadyCommitted = errors.New("file already committed")
 
