@@ -10,7 +10,7 @@ temporary file to the original name on close.
 
 ## Installation
 
- $  go get github.com/dchest/safefile
+  $  go get github.com/dchest/safefile
 
 ## Documentation
 	
