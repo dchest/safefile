@@ -54,7 +54,8 @@ func makeTempName(origname string, counter int) (tempname string, err error) {
 	return filepath.Join(filepath.Dir(origname), fmt.Sprintf("%x-%d.tmp", time.Now().UnixNano(), counter)), nil
 }
 
-// Create creates a file in the same directory as filename
+// Create creates a temporary file in the same directory as filename,
+// which will be renamed to the given filename when calling Commit.
 func Create(filename string, perm os.FileMode) (*File, error) {
 	counter := 0
 	for {
@@ -84,7 +85,7 @@ func (f *File) OrigName() string {
 }
 
 // Close closes temporary file and removes it.
-// If the file has been committed, Close is noop.
+// If the file has been committed, Close is no-op.
 func (f *File) Close() error {
 	return f.closeFunc(f)
 }
@@ -114,16 +115,15 @@ func closeAgainError(f *File) error {
 	return os.ErrInvalid
 }
 
-// Commit safely closes the file by syncing temporary file,
-// closing it and renaming to the original file name.
+// Commit safely commits data into the original file by syncing temporary
+// file to disk, closing it and renaming to the original file name.
 //
-// In case of success, the temporary file is closed and
-// no longer exists on disk. It is safe to call Close on
-// after Commit: the operation will do nothing.
+// In case of success, the temporary file is closed and no longer exists
+// on disk. It is safe to call Close after Commit: the operation will do
+// nothing.
 //
-// In case of error, the temporary file is still opened
-// and exists on disk; it must be closed by callers by
-// calling Close or by trying to commit again.
+// In case of error, the temporary file is still opened and exists on disk;
+// it must be closed by callers by calling Close or by trying to commit again.
 func (f *File) Commit() error {
 	// Sync to disk.
 	err := f.Sync()
