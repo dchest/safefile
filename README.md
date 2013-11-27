@@ -20,7 +20,7 @@ $ go get github.com/dchest/safefile
 
 ## Example
 
-```
+```go
 f, err := safefile.Create("/home/ken/report.txt")
 if err != nil {
 	// ...
