@@ -18,7 +18,7 @@ temporary file to the original name on close.
 
 ## Example
 
-```
+```go
  f, err := safefile.Create("/home/ken/report.txt")
  if err != nil {
  	// ...
