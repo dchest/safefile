@@ -45,6 +45,7 @@ func testInTempDir() error {
 	}
 	err = f.Commit()
 	if err != nil {
+		f.Close()
 		return err
 	}
 	err = f.Close()
