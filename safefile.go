@@ -69,7 +69,7 @@ func Create(filename string, perm os.FileMode) (*File, error) {
 		if err != nil {
 			return nil, err
 		}
-		f, err := os.OpenFile(tempname, os.O_RDWR|os.O_CREATE, perm)
+		f, err := os.OpenFile(tempname, os.O_RDWR|os.O_CREATE|os.O_EXCL, perm)
 		if err != nil {
 			if os.IsExist(err) {
 				counter++
