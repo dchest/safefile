@@ -114,7 +114,11 @@ func closeUncommitted(f *File) error {
 }
 
 func closeAfterFailedRename(f *File) error {
-	// just remove temporary file.
+	// Remove temporary file.
+	//
+	// The note from Commit function applies here too, as we may be
+	// removing a different file. However, since we rely on our temporary
+	// names being unpredictable, this should not be a concern.
 	f.closeFunc = closeAgainError
 	return os.Remove(f.Name())
 }
@@ -137,22 +141,33 @@ func closeAgainError(f *File) error {
 //
 // In case of error, the temporary file is still opened and exists on disk;
 // it must be closed by callers by calling Close or by trying to commit again.
+
+// Note that when trying to Commit again after a failed Commit when the file
+// has been closed, but not renamed to its original name (the new commit will
+// try again to rename it), safefile cannot guarantee that the temporary file
+// has not been changed, or that it is the same temporary file we were dealing
+// with.  However, since the temporary name is unpredictable, it is unlikely
+// that this happened accidentally. If complete atomicity is needed, do not
+// Commit again after error, write the file again.
 func (f *File) Commit() error {
 	if f.isCommitted {
 		return ErrAlreadyCommitted
 	}
-	// Sync to disk.
-	err := f.Sync()
-	if err != nil {
-		return err
-	}
-	// Close underlying os.File.
-	err = f.File.Close()
-	if err != nil {
-		return err
+	if !f.isClosed {
+		// Sync to disk.
+		err := f.Sync()
+		if err != nil {
+			return err
+		}
+		// Close underlying os.File.
+		err = f.File.Close()
+		if err != nil {
+			return err
+		}
+		f.isClosed = true
 	}
 	// Rename.
-	err = os.Rename(f.Name(), f.origName)
+	err := os.Rename(f.Name(), f.origName)
 	if err != nil {
 		f.closeFunc = closeAfterFailedRename
 		return err
@@ -161,7 +176,6 @@ func (f *File) Commit() error {
 	f.isCommitted = true
 	return nil
 }
-
 
 // WriteFile is a safe analog of ioutil.WriteFile.
 func WriteFile(filename string, data []byte, perm os.FileMode) error {
