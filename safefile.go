@@ -33,12 +33,14 @@
 package safefile
 
 import (
+	"crypto/rand"
+	"encoding/base32"
 	"errors"
 	"fmt"
 	"io"
 	"os"
 	"path/filepath"
-	"time"
+	"strings"
 )
 
 // ErrAlreadyCommitted error is returned when calling Commit on a file that
@@ -49,30 +51,35 @@ type File struct {
 	*os.File
 	origName    string
 	closeFunc   func(*File) error
-	isCommitted bool
+	isClosed    bool // if true, temporary file has been closed, but not renamed
+	isCommitted bool // if true, the file has been successfully committed
 }
 
-func makeTempName(origname string, counter int) (tempname string, err error) {
+func makeTempName(origname string) (tempname string, err error) {
 	origname = filepath.Clean(origname)
 	if len(origname) == 0 || origname[len(origname)-1] == filepath.Separator {
 		return "", os.ErrInvalid
 	}
-	return filepath.Join(filepath.Dir(origname), fmt.Sprintf("%x-%d.tmp", time.Now().UnixNano(), counter)), nil
+	// Generate 10 random bytes.
+	var rnd [10]byte
+	if _, err := rand.Read(rnd[:]); err != nil {
+		return "", err
+	}
+	name := strings.ToLower(base32.StdEncoding.EncodeToString(rnd[:]))
+	return filepath.Join(filepath.Dir(origname), fmt.Sprintf("sf-%s.tmp", name)), nil
 }
 
 // Create creates a temporary file in the same directory as filename,
 // which will be renamed to the given filename when calling Commit.
 func Create(filename string, perm os.FileMode) (*File, error) {
-	counter := 0
 	for {
-		tempname, err := makeTempName(filename, counter)
+		tempname, err := makeTempName(filename)
 		if err != nil {
 			return nil, err
 		}
 		f, err := os.OpenFile(tempname, os.O_RDWR|os.O_CREATE|os.O_EXCL, perm)
 		if err != nil {
 			if os.IsExist(err) {
-				counter++
 				continue
 			}
 			return nil, err
@@ -154,6 +161,7 @@ func (f *File) Commit() error {
 	f.isCommitted = true
 	return nil
 }
+
 
 // WriteFile is a safe analog of ioutil.WriteFile.
 func WriteFile(filename string, data []byte, perm os.FileMode) error {
