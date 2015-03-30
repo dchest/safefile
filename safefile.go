@@ -14,7 +14,7 @@
 //  if err != nil {
 //  	// ...
 //  }
-//  // Created temporary file /home/ken/133a7876287381fa-0.tmp
+//  // Created temporary file /home/ken/sf-ppcyksu5hyw2mfec.tmp
 //
 //  defer f.Close()
 //
@@ -22,13 +22,13 @@
 //  if err != nil {
 //  	// ...
 //  }
-//  // Wrote "Hello world" to /home/ken/133a7876287381fa-0.tmp
+//  // Wrote "Hello world" to /home/ken/sf-ppcyksu5hyw2mfec.tmp
 //
 //  err = f.Commit()
 //  if err != nil {
 //      // ...
 //  }
-//  // Renamed /home/ken/133a7876287381fa-0.tmp to /home/ken/report.txt
+//  // Renamed /home/ken/sf-ppcyksu5hyw2mfec.tmp to /home/ken/report.txt
 //
 package safefile
 
