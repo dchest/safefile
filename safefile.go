@@ -61,6 +61,8 @@ func makeTempName(origname string) (tempname string, err error) {
 		return "", os.ErrInvalid
 	}
 	// Generate 10 random bytes.
+	// This gives 80 bits of entropy, good enough
+	// for making temporary file name unpredictable.
 	var rnd [10]byte
 	if _, err := rand.Read(rnd[:]); err != nil {
 		return "", err
