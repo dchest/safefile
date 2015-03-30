@@ -55,6 +55,21 @@ func testInTempDir() error {
 	return ensureFileContains(name, testData)
 }
 
+func TestMakeTempName(t *testing.T) {
+	// Make sure temp name is random.
+	m := make(map[string]bool)
+	for i := 0; i < 100; i++ {
+		name, err := makeTempName("/tmp")
+		if err != nil {
+			t.Fatal(err)
+		}
+		if m[name] {
+			t.Fatal("repeated file name")
+		}
+		m[name] = true
+	}
+}
+
 func TestFile(t *testing.T) {
 	err := testInTempDir()
 	if err != nil {

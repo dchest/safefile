@@ -1,6 +1,6 @@
 # safefile
 
-[![Build Status](https://travis-ci.org/dchest/safefile.png)](https://travis-ci.org/dchest/safefile)
+[![Build Status](https://travis-ci.org/dchest/safefile.svg)](https://travis-ci.org/dchest/safefile)
 
 Go package safefile implements safe "atomic" saving of files.
 
@@ -21,11 +21,11 @@ $ go get github.com/dchest/safefile
 ## Example
 
 ```go
-f, err := safefile.Create("/home/ken/report.txt", 0644)
+f, err := safefile.Create("/home/ken/report.txt")
 if err != nil {
 	// ...
 }
-// Created temporary file /home/ken/133a7876287381fa-0.tmp
+// Created temporary file /home/ken/sf-ppcyksu5hyw2mfec.tmp
 
 defer f.Close()
 
@@ -33,12 +33,11 @@ _, err = io.WriteString(f, "Hello world")
 if err != nil {
 	// ...
 }
-// Wrote "Hello world" to /home/ken/133a7876287381fa-0.tmp
+// Wrote "Hello world" to /home/ken/sf-ppcyksu5hyw2mfec.tmp
 
 err = f.Commit()
 if err != nil {
     // ...
 }
-// Renamed /home/ken/133a7876287381fa-0.tmp to /home/ken/report.txt
-
+// Renamed /home/ken/sf-ppcyksu5hyw2mfec.tmp to /home/ken/report.txt
 ```

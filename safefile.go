@@ -14,7 +14,7 @@
 //  if err != nil {
 //  	// ...
 //  }
-//  // Created temporary file /home/ken/133a7876287381fa-0.tmp
+//  // Created temporary file /home/ken/sf-ppcyksu5hyw2mfec.tmp
 //
 //  defer f.Close()
 //
@@ -22,23 +22,25 @@
 //  if err != nil {
 //  	// ...
 //  }
-//  // Wrote "Hello world" to /home/ken/133a7876287381fa-0.tmp
+//  // Wrote "Hello world" to /home/ken/sf-ppcyksu5hyw2mfec.tmp
 //
 //  err = f.Commit()
 //  if err != nil {
 //      // ...
 //  }
-//  // Renamed /home/ken/133a7876287381fa-0.tmp to /home/ken/report.txt
+//  // Renamed /home/ken/sf-ppcyksu5hyw2mfec.tmp to /home/ken/report.txt
 //
 package safefile
 
 import (
+	"crypto/rand"
+	"encoding/base32"
 	"errors"
 	"fmt"
 	"io"
 	"os"
 	"path/filepath"
-	"time"
+	"strings"
 )
 
 // ErrAlreadyCommitted error is returned when calling Commit on a file that
@@ -49,30 +51,35 @@ type File struct {
 	*os.File
 	origName    string
 	closeFunc   func(*File) error
-	isCommitted bool
+	isClosed    bool // if true, temporary file has been closed, but not renamed
+	isCommitted bool // if true, the file has been successfully committed
 }
 
-func makeTempName(origname string, counter int) (tempname string, err error) {
+func makeTempName(origname string) (tempname string, err error) {
 	origname = filepath.Clean(origname)
 	if len(origname) == 0 || origname[len(origname)-1] == filepath.Separator {
 		return "", os.ErrInvalid
 	}
-	return filepath.Join(filepath.Dir(origname), fmt.Sprintf("%x-%d.tmp", time.Now().UnixNano(), counter)), nil
+	// Generate 10 random bytes.
+	var rnd [10]byte
+	if _, err := rand.Read(rnd[:]); err != nil {
+		return "", err
+	}
+	name := strings.ToLower(base32.StdEncoding.EncodeToString(rnd[:]))
+	return filepath.Join(filepath.Dir(origname), fmt.Sprintf("sf-%s.tmp", name)), nil
 }
 
 // Create creates a temporary file in the same directory as filename,
 // which will be renamed to the given filename when calling Commit.
 func Create(filename string, perm os.FileMode) (*File, error) {
-	counter := 0
 	for {
-		tempname, err := makeTempName(filename, counter)
+		tempname, err := makeTempName(filename)
 		if err != nil {
 			return nil, err
 		}
 		f, err := os.OpenFile(tempname, os.O_RDWR|os.O_CREATE|os.O_EXCL, perm)
 		if err != nil {
 			if os.IsExist(err) {
-				counter++
 				continue
 			}
 			return nil, err
@@ -107,7 +114,11 @@ func closeUncommitted(f *File) error {
 }
 
 func closeAfterFailedRename(f *File) error {
-	// just remove temporary file.
+	// Remove temporary file.
+	//
+	// The note from Commit function applies here too, as we may be
+	// removing a different file. However, since we rely on our temporary
+	// names being unpredictable, this should not be a concern.
 	f.closeFunc = closeAgainError
 	return os.Remove(f.Name())
 }
@@ -130,22 +141,33 @@ func closeAgainError(f *File) error {
 //
 // In case of error, the temporary file is still opened and exists on disk;
 // it must be closed by callers by calling Close or by trying to commit again.
+
+// Note that when trying to Commit again after a failed Commit when the file
+// has been closed, but not renamed to its original name (the new commit will
+// try again to rename it), safefile cannot guarantee that the temporary file
+// has not been changed, or that it is the same temporary file we were dealing
+// with.  However, since the temporary name is unpredictable, it is unlikely
+// that this happened accidentally. If complete atomicity is needed, do not
+// Commit again after error, write the file again.
 func (f *File) Commit() error {
 	if f.isCommitted {
 		return ErrAlreadyCommitted
 	}
-	// Sync to disk.
-	err := f.Sync()
-	if err != nil {
-		return err
-	}
-	// Close underlying os.File.
-	err = f.File.Close()
-	if err != nil {
-		return err
+	if !f.isClosed {
+		// Sync to disk.
+		err := f.Sync()
+		if err != nil {
+			return err
+		}
+		// Close underlying os.File.
+		err = f.File.Close()
+		if err != nil {
+			return err
+		}
+		f.isClosed = true
 	}
 	// Rename.
-	err = os.Rename(f.Name(), f.origName)
+	err := os.Rename(f.Name(), f.origName)
 	if err != nil {
 		f.closeFunc = closeAfterFailedRename
 		return err
