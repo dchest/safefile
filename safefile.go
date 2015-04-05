@@ -36,7 +36,6 @@ import (
 	"crypto/rand"
 	"encoding/base32"
 	"errors"
-	"fmt"
 	"io"
 	"os"
 	"path/filepath"
@@ -67,8 +66,8 @@ func makeTempName(origname string) (tempname string, err error) {
 	if _, err := rand.Read(rnd[:]); err != nil {
 		return "", err
 	}
-	name := strings.ToLower(base32.StdEncoding.EncodeToString(rnd[:]))
-	return filepath.Join(filepath.Dir(origname), fmt.Sprintf("sf-%s.tmp", name)), nil
+	name := "sf-" + strings.ToLower(base32.StdEncoding.EncodeToString(rnd[:])) + ".tmp"
+	return filepath.Join(filepath.Dir(origname), name), nil
 }
 
 // Create creates a temporary file in the same directory as filename,
