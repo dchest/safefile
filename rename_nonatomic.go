@@ -23,7 +23,10 @@ func rename(oldname, newname string) error {
 		// temporary name is not known.)
 		var origtmp string
 		for {
-			origtmp = makeTempName(newname, filepath.Base(newname))
+			origtmp, err = makeTempName(newname, filepath.Base(newname))
+			if err != nil {
+				return err
+			}
 			err = os.Stat(origtmp)
 			if err == nil {
 				continue // most likely will never happen
