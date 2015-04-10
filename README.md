@@ -1,6 +1,6 @@
 # safefile
 
-[![Build Status](https://travis-ci.org/dchest/safefile.svg)](https://travis-ci.org/dchest/safefile)
+[![Build Status](https://travis-ci.org/dchest/safefile.svg)](https://travis-ci.org/dchest/safefile) [![Windows Build status](https://ci.appveyor.com/api/projects/status/owlifxeekg75t2ho?svg=true)](https://ci.appveyor.com/project/dchest/safefile)
 
 Go package safefile implements safe "atomic" saving of files.
 

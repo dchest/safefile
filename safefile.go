@@ -54,7 +54,7 @@ type File struct {
 	isCommitted bool // if true, the file has been successfully committed
 }
 
-func makeTempName(origname string) (tempname string, err error) {
+func makeTempName(origname, prefix string) (tempname string, err error) {
 	origname = filepath.Clean(origname)
 	if len(origname) == 0 || origname[len(origname)-1] == filepath.Separator {
 		return "", os.ErrInvalid
@@ -66,7 +66,7 @@ func makeTempName(origname string) (tempname string, err error) {
 	if _, err := rand.Read(rnd[:]); err != nil {
 		return "", err
 	}
-	name := "sf-" + strings.ToLower(base32.StdEncoding.EncodeToString(rnd[:])) + ".tmp"
+	name := prefix + "-" + strings.ToLower(base32.StdEncoding.EncodeToString(rnd[:])) + ".tmp"
 	return filepath.Join(filepath.Dir(origname), name), nil
 }
 
@@ -74,7 +74,7 @@ func makeTempName(origname string) (tempname string, err error) {
 // which will be renamed to the given filename when calling Commit.
 func Create(filename string, perm os.FileMode) (*File, error) {
 	for {
-		tempname, err := makeTempName(filename)
+		tempname, err := makeTempName(filename, "sf")
 		if err != nil {
 			return nil, err
 		}
@@ -168,7 +168,7 @@ func (f *File) Commit() error {
 		f.isClosed = true
 	}
 	// Rename.
-	err := os.Rename(f.Name(), f.origName)
+	err := rename(f.Name(), f.origName)
 	if err != nil {
 		f.closeFunc = closeAfterFailedRename
 		return err
