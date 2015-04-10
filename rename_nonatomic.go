@@ -27,7 +27,7 @@ func rename(oldname, newname string) error {
 			if err != nil {
 				return err
 			}
-			err = os.Stat(origtmp)
+			_, err = os.Stat(origtmp)
 			if err == nil {
 				continue // most likely will never happen
 			}
