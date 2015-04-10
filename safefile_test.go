@@ -73,7 +73,7 @@ func TestMakeTempName(t *testing.T) {
 func TestFile(t *testing.T) {
 	err := testInTempDir()
 	if err != nil {
-		t.Fatalf("%s", err)
+		t.Fatal(err)
 	}
 }
 
@@ -81,21 +81,21 @@ func TestWriteFile(t *testing.T) {
 	name := tempFileName(1)
 	err := WriteFile(name, []byte(testData), 0666)
 	if err != nil {
-		t.Fatalf("%s", err)
+		t.Fatal(err)
 	}
 	err = ensureFileContains(name, testData)
 	if err != nil {
 		os.Remove(name)
-		t.Fatalf("%s", err)
+		t.Fatal(err)
 	}
 	os.Remove(name)
 }
 
 func TestAbandon(t *testing.T) {
-	name := tempFileName(3)
+	name := tempFileName(2)
 	f, err := Create(name, 0666)
 	if err != nil {
-		t.Fatalf("%s", err)
+		t.Fatal(err)
 	}
 	err = f.Close()
 	if err != nil {
@@ -104,7 +104,7 @@ func TestAbandon(t *testing.T) {
 	// Make sure temporary file doesn't exist.
 	_, err = os.Stat(f.Name())
 	if err != nil && !os.IsNotExist(err) {
-		t.Fatalf("%s", err)
+		t.Fatal(err)
 	}
 }
 
@@ -112,7 +112,7 @@ func TestDoubleCommit(t *testing.T) {
 	name := tempFileName(3)
 	f, err := Create(name, 0666)
 	if err != nil {
-		t.Fatalf("%s", err)
+		t.Fatal(err)
 	}
 	err = f.Commit()
 	if err != nil {
@@ -130,4 +130,26 @@ func TestDoubleCommit(t *testing.T) {
 		t.Fatalf("Close failed: %s", err)
 	}
 	os.Remove(name)
+}
+
+func TestOverwriting(t *testing.T) {
+	name := tempFileName(4)
+	defer os.Remove(name)
+
+	olddata := "This is old data"
+	err := ioutil.WriteFile(name, []byte(olddata), 0600)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	newdata := "This is new data"
+	err = WriteFile(name, []byte(newdata), 0600)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	err = ensureFileContains(name, newdata)
+	if err != nil {
+		t.Fatal(err)
+	}
 }
