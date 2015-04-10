@@ -1,4 +1,4 @@
-// +build !plan9 windows,go1.5
+// +build !plan9,!windows windows,go1.5
 
 package safefile
 
