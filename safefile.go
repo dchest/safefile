@@ -66,7 +66,7 @@ func makeTempName(origname, prefix string) (tempname string, err error) {
 	if _, err := rand.Read(rnd[:]); err != nil {
 		return "", err
 	}
-	name := prefix + strings.ToLower(base32.StdEncoding.EncodeToString(rnd[:])) + ".tmp"
+	name := prefix + "-" + strings.ToLower(base32.StdEncoding.EncodeToString(rnd[:])) + ".tmp"
 	return filepath.Join(filepath.Dir(origname), name), nil
 }
 
@@ -74,7 +74,7 @@ func makeTempName(origname, prefix string) (tempname string, err error) {
 // which will be renamed to the given filename when calling Commit.
 func Create(filename string, perm os.FileMode) (*File, error) {
 	for {
-		tempname, err := makeTempName(filename, "sf-")
+		tempname, err := makeTempName(filename, "sf")
 		if err != nil {
 			return nil, err
 		}

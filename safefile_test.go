@@ -59,7 +59,7 @@ func TestMakeTempName(t *testing.T) {
 	// Make sure temp name is random.
 	m := make(map[string]bool)
 	for i := 0; i < 100; i++ {
-		name, err := makeTempName("/tmp", "sf-")
+		name, err := makeTempName("/tmp", "sf")
 		if err != nil {
 			t.Fatal(err)
 		}
