@@ -27,7 +27,7 @@ $ go get github.com/dchest/safefile
 
 ### Documentation
 
- <http://godoc.org/github.com/dchest/safefile>
+ <https://stablelib.com/doc/v1/safefile/>
 
 ### Example
 
