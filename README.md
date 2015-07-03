@@ -19,17 +19,17 @@ through StableLib: <https://stablelib.com/v1/safefile/>**
 Development version
 -------------------
 
-## Installation
+### Installation
 
 ```
 $ go get github.com/dchest/safefile
 ```
 
-## Documentation
+### Documentation
 
  <http://godoc.org/github.com/dchest/safefile>
 
-## Example
+### Example
 
 ```go
 f, err := safefile.Create("/home/ken/report.txt", 0644)
