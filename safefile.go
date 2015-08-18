@@ -34,6 +34,8 @@ package safefile
 
 import (
 	"crypto/rand"
+	"crypto/sha512"
+	"crypto/subtle"
 	"encoding/base32"
 	"errors"
 	"io"
@@ -49,6 +51,7 @@ var ErrAlreadyCommitted = errors.New("file already committed")
 type File struct {
 	*os.File
 	origName    string
+	tempName    string
 	closeFunc   func(*File) error
 	isClosed    bool // if true, temporary file has been closed, but not renamed
 	isCommitted bool // if true, the file has been successfully committed
@@ -74,7 +77,7 @@ func makeTempName(origname, prefix string) (tempname string, err error) {
 // which will be renamed to the given filename when calling Commit.
 func Create(filename string, perm os.FileMode) (*File, error) {
 	for {
-		tempname, err := makeTempName(filename, "sf")
+		tempname, err := makeTempName(filename, ".sf")
 		if err != nil {
 			return nil, err
 		}
@@ -88,6 +91,7 @@ func Create(filename string, perm os.FileMode) (*File, error) {
 		return &File{
 			File:      f,
 			origName:  filename,
+			tempName:  tempname,
 			closeFunc: closeUncommitted,
 		}, nil
 	}
@@ -176,6 +180,69 @@ func (f *File) Commit() error {
 	f.closeFunc = closeCommitted
 	f.isCommitted = true
 	return nil
+}
+
+func (f *File) hashContents(p string) ([]byte, error) {
+	hasher := sha512.New()
+	fp, err := os.Open(p)
+	if err != nil {
+		return nil, err
+	}
+	defer fp.Close()
+	if _, err := io.Copy(hasher, fp); err != nil {
+		return nil, err
+	}
+	return hasher.Sum(nil), nil
+}
+
+func (f *File) sameContents(a string, b string) (bool, error) {
+	hca, err := f.hashContents(a)
+	if os.IsNotExist(err) {
+		// Treat non-existent file as a difference
+		return false, nil
+	} else if err != nil {
+		return false, err
+	}
+
+	hcb, err := f.hashContents(b)
+	if os.IsNotExist(err) {
+		return false, nil
+	} else if err != nil {
+		return false, err
+	}
+
+	rv := subtle.ConstantTimeCompare(hca, hcb)
+	if rv == 1 {
+		return true, nil
+	} else {
+		return false, nil
+	}
+}
+
+func (f *File) CommitIfChanged() (bool, error) {
+	if !f.isClosed {
+		// Sync to disk.
+		err := f.Sync()
+		if err != nil {
+			return false, err
+		}
+		// Close underlying os.File.
+		err = f.File.Close()
+		if err != nil {
+			return false, err
+		}
+		f.isClosed = true
+	}
+
+	same, err := f.sameContents(f.tempName, f.origName)
+	if err != nil {
+		return false, err
+	}
+
+	if !same {
+		return true, f.Commit()
+	}
+	return false, nil
 }
 
 // WriteFile is a safe analog of ioutil.WriteFile.
