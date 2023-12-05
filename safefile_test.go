@@ -153,3 +153,77 @@ func TestOverwriting(t *testing.T) {
 		t.Fatal(err)
 	}
 }
+
+func TestCommitIfNotExistsCreate(t *testing.T) {
+	name := tempFileName(5)
+	defer os.Remove(name)
+
+	f, err := Create(name, 0666)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer f.Close()
+
+	_, err = io.WriteString(f, testData)
+	if err != nil {
+		t.Fatal(err)
+	}
+	err = f.CommitIfNotExists()
+	if err != nil {
+		t.Fatal(err)
+	}
+	err = f.Close()
+	if err != nil {
+		t.Fatal(err)
+	}
+	// Make sure temporary file doesn't exist.
+	_, err = os.Stat(f.Name())
+	if err != nil && !os.IsNotExist(err) {
+		t.Fatal(err)
+	}
+
+	err = ensureFileContains(name, testData)
+	if err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestCommitIfNotExistsFail(t *testing.T) {
+	name := tempFileName(6)
+	defer os.Remove(name)
+
+	olddata := "This is old data"
+	err := ioutil.WriteFile(name, []byte(olddata), 0600)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	f, err := Create(name, 0666)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer f.Close()
+
+	newdata := "This is new data"
+	_, err = io.WriteString(f, newdata)
+
+	err = f.CommitIfNotExists()
+	if err == nil || !os.IsExist(err) {
+		t.Fatalf("CommitIfNotExists should have failed with EEXIST, got %v", err)
+	}
+	err = f.Close()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// Make sure temporary file doesn't exist.
+	_, err = os.Stat(f.Name())
+	if err != nil && !os.IsNotExist(err) {
+		t.Fatal(err)
+	}
+
+	err = ensureFileContains(name, olddata)
+	if err != nil {
+		t.Fatal(err)
+	}
+}
